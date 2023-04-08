@@ -1,0 +1,13 @@
+upstream loadbalancer {
+server 172.17.0.1:5001 weight=6;
+server 172.17.0.1:5002 weight=4;
+}
+
+server {
+    listen  80;
+    server_name  localhost;
+    location / {
+        proxy_pass  http://loadbalancer;
+    }
+
+}
