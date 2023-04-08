@@ -1,0 +1,53 @@
+
+
+
+
+1.
+Normalize: Divide data into multiple databases for data integrity and reduce redundancy and inconsistencies. 
+Denormalization: use a single database along with redundancy to make data retrieval faster, combine multiple tables into one.
+
+Normalize generally has a faster insert, update, and delete commands, while denormalized schemas have faster search times. Further, normalized schemas will have a more optimised disk space usage when compared to denormalized.
+
+Since this is a  social media platform, there are generally more frequent queries that occur from users reading other users posts. This means that one should probably use a denormalized schema in order to reduce time it takes to retrieve data from the database.
+
+2. db.posts.createIndex( 
+{tag: 1 },
+{ partialFilterExpression: { tag: { $exists: true } } }
+)
+ indexes are expensive since each insert must also update any indexes when writes are high, but generally reads are not affected as much
+However, if the database gets large enough where the index can no longer fit into ram memory, then this could slow down the database read/write significantly.
+
+
+3.db.posts.update(
+  {},
+  { $set: {"create_loc": 1} },
+  false,
+  true
+)
+
+Or 
+
+db.posts.updateMany(
+  {},
+  { $set: {"create_loc": “”} }
+)
+
+One issue is that you cant update the fields of an array as easily. Also can’t change type constraints during//multiple types
+
+4. Cache much of client or userside data. Things such as a users timeline/mainfeed, or chats, images a user frequently sees such as a logo. 
+A benefit is fast loading of common user facing objects, however could have to large of objects cached such as video, slowing cache down.
+Cache invalidation could be setup by sorting the sets. This would lower the number of requests from cache
+While, cache expiration can be setup by creating a specific expiration time of objects so that objects dated a certain time back, such as 1 day are deleted.
+
+5.You could use a sub-pub model between 1 on 1 users chats or even group chats. 
+Rabbitmq is good for longrunning background tasks or for a middleman for between services
+While kafka is good for storing and reading data streams or other realtime sources.
+Rabbitmq push’s messages 
+While kafka pulls
+Rabbitmq slows down as its queue fills
+Kafta has relatively simple routing abilities when compared rabbitmq
+
+To ensure message persistence and replication I would use kafka as it is more durable and can restart a send if the connection breaks. This allows for messages to be stored permanently no matter the situation.
+
+6.
+For multiuser I would use locks when updating the db during a write, and when writing the cache have a lock in place there and send a lock to db. Have cache keep a small live time for the cache so it is not out of sync often. The drawbacks are that this might slow transactions as they have to wait for locks to release, but data is always consistent this way.

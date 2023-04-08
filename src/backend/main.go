@@ -4,17 +4,20 @@ import (
 	//"database/sql"
 	"encoding/json"
 	"fmt"
+
 	//"io/ioutil"
 	"log"
 	"net/http"
+
 	//"os"
-	"time"
 	"context"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	//"github.com/gorilla/handlers"
-	"github.com/gomodule/redigo/redis"
+
 	"github.com/gorilla/mux"
+	"github.com/rueian/rueidis"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -92,7 +95,6 @@ import (
 // 	return nil
 // }
 
-
 type Post struct {
 	Title   string `json:"title"`
 	Content string `json:"content"`
@@ -114,7 +116,7 @@ type User struct {
 	Username string   `json:"username" bson:"username"`
 	Email    string   `json:"email" bson:"email"`
 	Password string   `json:"password" bson:"password"`
-	DoB      string   `json:"dob" bson:"dob"`
+	Birthday string   `json:"dob" bson:"dob"`
 	Friends  []string `json:"friends" bson:"friends"`
 }
 
@@ -128,7 +130,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 
 	json.NewDecoder(r.Body).Decode(&newUser)
 
-	collection := client.Database("seng468").Collection("users")
+	collection := client.Database("social_app").Collection("users")
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	result, _ := collection.InsertOne(ctx, newUser)
 
@@ -141,7 +143,7 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 
 	var users []User
 
-	collection := client.Database("seng468").Collection("users")
+	collection := client.Database("social_app").Collection("users")
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	cursor, err := collection.Find(ctx, bson.M{})
 	if err != nil {
@@ -173,12 +175,12 @@ func createPost(w http.ResponseWriter, r *http.Request) {
 
 	json.NewDecoder(r.Body).Decode(&newPost)
 
-	collection := client.Database("seng468").Collection("posts")
+	collection := client.Database("social_app").Collection("posts")
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	result, _ := collection.InsertOne(ctx, newPost)
 
 	// Redis setup
-	conn, err := redis.Dial("tcp", "localhost:6379")
+	conn, err := rueidis.Dial("tcp", "localhost:6379")
 	checkError(err)
 	defer conn.Close()
 	_, err = conn.Do(
@@ -195,7 +197,7 @@ func getPosts(w http.ResponseWriter, r *http.Request) {
 
 	var posts []Post
 
-	collection := client.Database("seng468").Collection("posts")
+	collection := client.Database("social_app").Collection("posts")
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	cursor, err := collection.Find(ctx, bson.M{})
 	if err != nil {
@@ -219,7 +221,7 @@ func getPosts(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(posts)
 }
 
-func createComment(w http.ResponseWriter, r *http.Request) {
+func createCom(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Add("content-type", "application/json")
 
@@ -227,20 +229,20 @@ func createComment(w http.ResponseWriter, r *http.Request) {
 
 	json.NewDecoder(r.Body).Decode(&newComment)
 
-	collection := client.Database("seng468").Collection("comments")
+	collection := client.Database("social_app").Collection("comments")
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	result, _ := collection.InsertOne(ctx, newComment)
 
 	json.NewEncoder(w).Encode(result)
 }
 
-func getComments(w http.ResponseWriter, r *http.Request) {
+func getCom(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Add("content-type", "application/json")
 
 	var comments []Comment
 
-	collection := client.Database("seng468").Collection("comments")
+	collection := client.Database("social_app").Collection("comments")
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	cursor, err := collection.Find(ctx, bson.M{})
 	if err != nil {
@@ -279,12 +281,31 @@ func main() {
 	clientOptions.ApplyURI("mongodb://localhost:27017")
 	client, _ = mongo.Connect(ctx, clientOptions)
 
+	//redis client for cluster
+	client_r, err := rueidis.NewClient(rueidis.ClientOption{
+		InitAddress: []string{"127.0.0.1:7001", "127.0.0.1:7002", "127.0.0.1:7003"},
+		ShuffleInit: true,
+	})
+	if err != nil {
+		panic(err)
+	}
+	defer client_r.Close()
+
+	ctx_r := context.Background()
+
+	// SET key val NX
+	//err = client_r.Do(ctx_r, client_r.B().Set().Key("key").Value("val").Nx().Build()).Error()
+
 	router := mux.NewRouter()
+	handle_http(router)
+}
+
+func handle_http(router *mux.Router) {
 	router.HandleFunc("/users", getUsers).Methods("GET")
 	router.HandleFunc("/users", createUser).Methods("POST")
 	router.HandleFunc("/posts", getPosts).Methods("GET")
 	router.HandleFunc("/posts", createPost).Methods("POST")
-	router.HandleFunc("/comments", getComments).Methods("GET")
-	router.HandleFunc("/comments", createComment).Methods("POST")
+	router.HandleFunc("/comments", getCom).Methods("GET")
+	router.HandleFunc("/comments", createCom).Methods("POST")
 	http.ListenAndServe(":8089", router)
 }

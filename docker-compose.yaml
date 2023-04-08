@@ -38,21 +38,21 @@ services:
       - backend-2
     expose:
       - 8080
-  # cluster:
-  #   image: redis:7.0.5-alpine
-  #   entrypoint:
-  #     - /bin/sh
-  #     - -c
-  #     - |
-  #       redis-server --port 7001 --save "" --appendonly no --cluster-enabled yes --cluster-config-file 7001.conf &
-  #       redis-server --port 7002 --save "" --appendonly no --cluster-enabled yes --cluster-config-file 7002.conf &
-  #       redis-server --port 7003 --save "" --appendonly no --cluster-enabled yes --cluster-config-file 7003.conf &
-  #       while ! redis-cli --cluster create 127.0.0.1:7001 127.0.0.1:7002 127.0.0.1:7003 --cluster-yes; do sleep 1; done
-  #       wait
-  #   ports:
-  #     - "7001:7001"
-  #     - "7002:7002"
-  #     - "7003:7003"
+  cluster:
+    image: redis:7.0.5-alpine
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        redis-server --port 7001 --save "" --appendonly no --cluster-enabled yes --cluster-config-file 7001.conf &
+        redis-server --port 7002 --save "" --appendonly no --cluster-enabled yes --cluster-config-file 7002.conf &
+        redis-server --port 7003 --save "" --appendonly no --cluster-enabled yes --cluster-config-file 7003.conf &
+        while ! redis-cli --cluster create 127.0.0.1:7001 127.0.0.1:7002 127.0.0.1:7003 --cluster-yes; do sleep 1; done
+        wait
+    ports:
+      - "7001:7001"
+      - "7002:7002"
+      - "7003:7003"
 volumes:
   db-data:
 secrets:
